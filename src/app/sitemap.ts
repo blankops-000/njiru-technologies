@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { SITE_CONFIG } from '@/lib/config';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

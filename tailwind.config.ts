@@ -2,9 +2,19 @@ import type { Config } from "tailwindcss"
 
 const config = {
   darkMode: ["class"],
-  content: [
-    './src/**/*.{ts,tsx}',
-  ],
+  content: {
+    files: ['./src/**/*.{ts,tsx}'],
+    extract: {
+      tsx: (content: string) => {
+        const matches = content.match(/[\w-/:]+(?<!:)/g) || [];
+        return matches.filter((c) => !c.includes('.') && !c.startsWith('-:'));
+      },
+      ts: (content: string) => {
+        const matches = content.match(/[\w-/:]+(?<!:)/g) || [];
+        return matches.filter((c) => !c.includes('.') && !c.startsWith('-:'));
+      },
+    },
+  },
   prefix: "",
   theme: {
     container: {
