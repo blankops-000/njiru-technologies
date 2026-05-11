@@ -58,7 +58,6 @@ export class PaymentService {
     const amountItem = items.find((i: any) => i.Name === 'Amount');
     const receiptItem = items.find((i: any) => i.Name === 'MpesaReceiptNumber');
     const phoneItem = items.find((i: any) => i.Name === 'PhoneNumber');
-
     const amount = amountItem?.Value;
     const receipt = receiptItem?.Value;
     const phone = phoneItem?.Value?.toString();

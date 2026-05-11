@@ -241,3 +241,4 @@ model MpesaSTKPush {
   @@index([checkoutRequestId])
   @@map("mpesa_stk_pushes")
 }
+
