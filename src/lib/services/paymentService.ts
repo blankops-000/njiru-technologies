@@ -62,12 +62,13 @@ export class PaymentService {
     const amount = amountItem?.Value;
     const receipt = receiptItem?.Value;
     const phone = phoneItem?.Value?.toString();
+    const checkoutRequestId = resultRaw.CheckoutRequestID;
 
-    if (!amount || !receipt) {
-      throw new Error('Missing amount or receipt in callback metadata');
+    if (!amount || !receipt || !checkoutRequestId) {
+      throw new Error('Missing critical data in M-Pesa callback');
     }
 
-    // Idempotency check: does this receipt already exist?
+    // 1. Idempotency check: does this receipt already exist?
     const existing = await prisma.payment.findFirst({
       where: { transactionReference: receipt }
     });
@@ -77,21 +78,46 @@ export class PaymentService {
       return { success: true, payment: existing };
     }
 
-    // In a full implementation, you'd find the invoice via CheckoutRequestID 
-    // mapping which you saved when initiating the STK push.
-    // For this prompt, we'll just log it as an unlinked payment flagged for admin review.
-    // Or we find a contact by phone number (if not encrypted deterministically, this is hard)
-    // We will create a dummy contact or attach to an "unknown" contact for manual reconciliation.
-    
-    // NOTE: This assumes an "Unknown" contact exists or we skip the contactId requirement.
-    // Since contactId is NOT NULL, we must have one. We will create a placeholder contact if not found.
-    
-    let contactId = "00000000-0000-0000-0000-000000000000"; // Placeholder logic
-    
-    // Alternatively, look up contact by phone if deterministic encryption is used.
-    
-    logger.info({ amount, receipt, phone }, 'M-Pesa payment received, requires manual reconciliation');
-    // We'll throw here to prevent inserting bad data until STK initiation mapping is built.
-    throw new Error('M-Pesa reconciliation requires STK push mapping table (not in schema)');
+    // 2. Find the STK push record to link the payment
+    const stkPush = await prisma.mpesaSTKPush.findUnique({
+      where: { checkoutRequestId }
+    });
+
+    if (!stkPush) {
+      logger.error({ checkoutRequestId, receipt }, 'M-Pesa callback received for unknown request');
+      // Still return success to Safaricom to stop retries, but we'll need manual intervention
+      return { success: false, reason: 'Unknown checkout request' };
+    }
+
+    // 3. Record the payment and update statuses
+    return await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          invoiceId: stkPush.invoiceId,
+          contactId: stkPush.contactId,
+          amount: Math.round(amount),
+          method: 'mpesa',
+          transactionReference: receipt,
+          notes: `M-Pesa payment from ${phone}`,
+        },
+      });
+
+      // Update STK Push status
+      await tx.mpesaSTKPush.update({
+        where: { id: stkPush.id },
+        data: { status: 'success' }
+      });
+
+      // Update invoice if linked
+      if (stkPush.invoiceId) {
+        await tx.invoice.update({
+          where: { id: stkPush.invoiceId },
+          data: { status: 'paid', paidAt: new Date() }
+        });
+      }
+
+      logger.info({ receipt, invoiceId: stkPush.invoiceId }, 'M-Pesa payment reconciled successfully');
+      return { success: true, payment };
+    });
   }
 }

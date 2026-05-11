@@ -225,3 +225,19 @@ model RefreshToken {
 
   @@map("refresh_tokens")
 }
+
+model MpesaSTKPush {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checkoutRequestId String   @unique @map("checkout_request_id")
+  merchantRequestId String?  @map("merchant_request_id")
+  amount            Int
+  phone             String
+  invoiceId         String?  @map("invoice_id") @db.Uuid
+  contactId         String   @map("contact_id") @db.Uuid
+  status            String   @default("pending") // 'pending' | 'success' | 'failed'
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([checkoutRequestId])
+  @@map("mpesa_stk_pushes")
+}
