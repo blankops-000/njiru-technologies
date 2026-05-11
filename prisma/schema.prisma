@@ -1,0 +1,227 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AdminUser {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  role          String    @default("admin") // 'admin' | 'editor'
+  avatarUrl     String?   @map("avatar_url")
+  lastLoginAt   DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  assignedContacts Contact[]
+  projectActivities ProjectActivity[]
+  blogPosts         BlogPost[]
+  refreshTokens     RefreshToken[]
+
+  @@map("admin_users")
+}
+
+model Service {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  slug           String   @unique
+  description    String?
+  category       String   // 'website' | 'mobile' | 'ai_automation' | 'branding' | 'package'
+  startingPrice  Int?     @map("starting_price") // KES
+  timeline       String?
+  features       Json?
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int?     @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  projects Project[]
+
+  @@index([category]) // Note: Prisma partial index requires raw SQL, but we define basic index here
+  @@map("services")
+}
+
+model Contact {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName       String   @map("full_name")
+  companyName    String?  @map("company_name")
+  email          String?  // PII
+  phone          String?  // PII
+  secondaryPhone String?  @map("secondary_phone")
+  source         String?  // 'website' | 'whatsapp' | 'referral' | 'social_media' | 'cold_outreach' | 'other'
+  status         String   @default("new") // 'new' | 'contacted' | 'qualified' | 'proposal_sent' | 'negotiation' | 'won' | 'lost' | 'inactive'
+  notes          String?
+  tags           String[]
+  assignedTo     String?  @map("assigned_to") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  adminUser AdminUser? @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  projects  Project[]
+  maintenancePlans MaintenancePlan[]
+  invoices  Invoice[]
+  payments  Payment[]
+
+  @@index([email]) // Prisma doesn't fully support partial unique in schema intuitively without db pull, so we just declare it
+  @@index([phone])
+  @@index([status])
+  @@index([tags], type: Gin)
+  @@map("contacts")
+}
+
+model Project {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contactId          String    @map("contact_id") @db.Uuid
+  serviceId          String    @map("service_id") @db.Uuid
+  title              String
+  slug               String?   @unique
+  description        String?
+  budget             Int?
+  paymentStructure   String?   @map("payment_structure")
+  startDate          DateTime? @map("start_date") @db.Date
+  deadline           DateTime? @db.Date
+  actualDeliveryDate DateTime? @map("actual_delivery_date") @db.Date
+  status             String    @default("discovery") // 'discovery'|'design'|'development'|'testing'|'delivered'|'completed'|'cancelled'
+  deliverables       String[]
+  techStack          String[]  @map("tech_stack")
+  adminNotes         String?   @map("admin_notes")
+  clientVisibleNotes String?   @map("client_visible_notes")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  contact  Contact @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  service  Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  activities ProjectActivity[]
+  invoices   Invoice[]
+  payments   Payment[]
+
+  @@index([contactId])
+  @@index([status])
+  @@index([deadline])
+  @@index([contactId, status])
+  @@map("projects")
+}
+
+model ProjectActivity {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  actorId     String?  @map("actor_id") @db.Uuid
+  action      String
+  oldValue    String?  @map("old_value")
+  newValue    String?  @map("new_value")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor     AdminUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@map("project_activities")
+}
+
+model MaintenancePlan {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contactId       String   @map("contact_id") @db.Uuid
+  planType        String   @map("plan_type") // 'basic' | 'standard' | 'premium'
+  amount          Int
+  startDate       DateTime @map("start_date") @db.Date
+  nextBillingDate DateTime @map("next_billing_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  status          String   @default("active") // 'active' | 'paused' | 'cancelled' | 'expired'
+  autoRenew       Boolean  @default(true) @map("auto_renew")
+  features        Json?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@index([contactId])
+  @@index([status])
+  @@index([nextBillingDate])
+  @@map("maintenance_plans")
+}
+
+model Invoice {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId     String?   @map("project_id") @db.Uuid
+  contactId     String    @map("contact_id") @db.Uuid
+  invoiceNumber String    @unique @map("invoice_number")
+  amount        Int
+  dueDate       DateTime  @map("due_date") @db.Date
+  status        String    @default("draft") // 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+  issuedAt      DateTime? @default(now()) @map("issued_at") @db.Timestamptz
+  paidAt        DateTime? @map("paid_at") @db.Timestamptz
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  project  Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  @@index([contactId])
+  @@index([projectId])
+  @@index([status])
+  @@map("invoices")
+}
+
+model Payment {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId            String?  @map("invoice_id") @db.Uuid
+  projectId            String?  @map("project_id") @db.Uuid
+  contactId            String   @map("contact_id") @db.Uuid
+  amount               Int
+  method               String   // 'mpesa' | 'bank_transfer' | 'cash' | 'paypal' | 'crypto' | 'other'
+  transactionReference String?  @map("transaction_reference")
+  paymentDate          DateTime @default(dbgenerated("CURRENT_DATE")) @map("payment_date") @db.Date
+  notes                String?
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  contact Contact  @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId])
+  @@index([contactId])
+  @@map("payments")
+}
+
+model BlogPost {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId         String    @map("author_id") @db.Uuid
+  title            String
+  slug             String    @unique
+  excerpt          String?
+  content          String?
+  featuredImageUrl String?   @map("featured_image_url")
+  tags             String[]
+  status           String    @default("draft") // 'draft' | 'published' | 'archived'
+  publishedAt      DateTime? @map("published_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  author AdminUser @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([slug])
+  @@index([publishedAt(sort: Desc)])
+  @@map("blog_posts")
+}
+
+model RefreshToken {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  tokenHash   String   @map("token_hash")
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz
+  revoked     Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
