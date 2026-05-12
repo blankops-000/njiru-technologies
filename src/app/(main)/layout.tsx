@@ -2,7 +2,7 @@ import { Header } from '@/components/public/header';
 import { Footer } from '@/components/public/footer';
 import { WhatsAppButton } from '@/components/public/whatsapp-button';
 
-export default function PublicLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;

@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
-// import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import { Toaster } from '@/components/ui/toaster';
 import { SITE_CONFIG } from '@/lib/config';
-
-// const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_CONFIG.metadata.url),
