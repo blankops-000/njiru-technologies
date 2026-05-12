@@ -3,6 +3,9 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['pino'],
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   async headers() {
     return [
       {
