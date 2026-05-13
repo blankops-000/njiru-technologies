@@ -25,7 +25,7 @@ export const SITE_CONFIG = {
 
   // Deployment metadata
   metadata: {
-    url: "https://njirutechnologies.com",
+    url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
     ogImage: "/njiru-tech-logo.jpeg",
   }
 };

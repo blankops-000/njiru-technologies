@@ -13,9 +13,9 @@ export function proxy(request: NextRequest) {
     const origin = request.headers.get('origin') || '';
     
     const allowedOrigins = [
-      'https://njirutechnologies.co.ke',
+      process.env.NEXT_PUBLIC_APP_URL,
       'http://localhost:3000'
-    ];
+    ].filter(Boolean);
     
     if (allowedOrigins.includes(origin)) {
       response.headers.set('Access-Control-Allow-Origin', origin);
