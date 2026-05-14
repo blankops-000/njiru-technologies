@@ -25,7 +25,7 @@ export const SITE_CONFIG = {
 
   // Deployment metadata
   metadata: {
-    url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    url: process.env.NEXT_PUBLIC_APP_URL || "https://njiru-technologies.vercel.app",
     ogImage: "/njiru-tech-logo.jpeg",
   }
 };
